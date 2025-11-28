@@ -37,8 +37,14 @@
     "views": {
       "horgen-peekui-servicebus-explorer": [
         {
+          "id": "horgen.peek-ui.favorites",
+          "name": "Favorites",
+          "icon": "media/peekui_icon.svg",
+          "contextualTitle": "Favorite Queues & Subscriptions"
+        },
+        {
           "id": "horgen.peek-ui",
-          "name": "Peek",
+          "name": "Connections",
           "icon": "media/peekui_icon.svg",
           "contextualTitle": "Servicebus Explorer"
         }
@@ -70,6 +76,40 @@
       {
         "command": "horgen.peek-ui.purgeDeadletter",
         "title": "Purge Deadletter"
+      },
+      {
+        "command": "horgen.peek-ui.removeConnection",
+        "title": "Remove Connection",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "horgen.peek-ui.editConnectionAlias",
+        "title": "Edit Connection Alias",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "horgen.peek-ui.showMessages",
+        "title": "View Messages",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "horgen.peek-ui.addToFavorites",
+        "title": "Add to Favorites",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "horgen.peek-ui.removeFromFavorites",
+        "title": "Remove from Favorites",
+        "icon": "$(star-full)"
+      },
+      {
+        "command": "horgen.peek-ui.openFavorite",
+        "title": "Open Favorite"
+      },
+      {
+        "command": "horgen.peek-ui.toggleMonitoring",
+        "title": "Toggle Message Monitoring",
+        "icon": "$(bell)"
       }
     ],
     "menus": {
@@ -81,6 +121,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "horgen.peek-ui.showMessages",
+          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
+          "group": "inline"
+        },
         {
           "command": "horgen.peek-ui.refresh",
           "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'childDependency' || viewItem == 'interactableDependency')",
@@ -105,6 +150,36 @@
           "command": "horgen.peek-ui.purgeDeadletter",
           "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
           "group": "group2"
+        },
+        {
+          "command": "horgen.peek-ui.removeConnection",
+          "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'disconnectedSbItem')",
+          "group": "inline"
+        },
+        {
+          "command": "horgen.peek-ui.editConnectionAlias",
+          "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'disconnectedSbItem')",
+          "group": "management"
+        },
+        {
+          "command": "horgen.peek-ui.toggleMonitoring",
+          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
+          "group": "monitoring"
+        },
+        {
+          "command": "horgen.peek-ui.addToFavorites",
+          "when": "view == horgen.peek-ui && (viewItem == 'interactableDependency' || viewItem == 'childDependency')",
+          "group": "favorites"
+        },
+        {
+          "command": "horgen.peek-ui.removeFromFavorites",
+          "when": "view == horgen.peek-ui.favorites && (viewItem == 'favoriteQueue' || viewItem == 'favoriteTopic' || viewItem == 'favoriteSubscription')",
+          "group": "inline"
+        },
+        {
+          "command": "horgen.peek-ui.showMessages",
+          "when": "view == horgen.peek-ui.favorites && (viewItem == 'favoriteQueue' || viewItem == 'favoriteSubscription')",
+          "group": "inline"
         }
       ]
     }
@@ -117,7 +192,7 @@
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "vscode:prepublish": "npm run package",
     "package": "npm run check-types && node esbuild.js --production"
-},
+  },
   "dependencies": {
     "@azure/service-bus": "^7.9.0"
   },

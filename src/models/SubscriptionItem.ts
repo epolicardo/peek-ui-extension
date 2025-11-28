@@ -5,6 +5,7 @@ import { ServiceBusProvider } from '../serviceBusProvider'
 import { mapSubscriptionToDep } from '../utils/dependencyMapper'
 import { IInteractableItem } from '../interfaces/IInteractableItem'
 import { SbDependencyBase } from './SbDependencyBase'
+import { ErrorHandler } from '../utils/errorHandler'
 
 export class SubscriptionItem extends SbDependencyBase implements IInteractableItem {
   constructor(
@@ -57,20 +58,44 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
 
   transfer = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.transferSubscriptionDl(this.connectionString, this.topicName, this.label)
-    await this.refresh(provider)
+    try {
+      await ErrorHandler.withProgress(
+        `Transferring deadletter messages from subscription '${this.label}'...`,
+        () => service.transferSubscriptionDl(this.connectionString, this.topicName, this.label)
+      )
+      vscode.window.showInformationMessage(`Successfully transferred deadletter messages from subscription '${this.label}'`)
+      await this.refresh(provider)
+    } catch (error) {
+      provider.refresh(this)
+    }
   }
 
   purge = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.purgeSubscriptionMessages(this.connectionString, this.topicName, this.label)
-    await this.refresh(provider)
+    try {
+      await ErrorHandler.withProgress(
+        `Purging messages from subscription '${this.label}'...`,
+        () => service.purgeSubscriptionMessages(this.connectionString, this.topicName, this.label)
+      )
+      vscode.window.showInformationMessage(`Successfully purged messages from subscription '${this.label}'`)
+      await this.refresh(provider)
+    } catch (error) {
+      provider.refresh(this)
+    }
   }
 
   purgeDl = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.purgeSubscriptionDeadletter(this.connectionString, this.topicName, this.label)
-    await this.refresh(provider)
+    try {
+      await ErrorHandler.withProgress(
+        `Purging deadletter from subscription '${this.label}'...`,
+        () => service.purgeSubscriptionDeadletter(this.connectionString, this.topicName, this.label)
+      )
+      vscode.window.showInformationMessage(`Successfully purged deadletter from subscription '${this.label}'`)
+      await this.refresh(provider)
+    } catch (error) {
+      provider.refresh(this)
+    }
   }
 
   show = async () => {
@@ -92,5 +117,28 @@ export class SubscriptionItem extends SbDependencyBase implements IInteractableI
     this.view.panel?.onDidDispose(() => {
       this.view = undefined
     })
+  }
+
+  toggleMonitoring = async (provider: ServiceBusProvider) => {
+    const isMonitoring = service.isMonitoring(this.connectionString, this.label)
+
+    if (isMonitoring) {
+      await service.stopMonitoring(this.connectionString, this.label)
+      this.iconPath = new vscode.ThemeIcon('database')
+    }
+    else {
+      await service.startMonitoring(
+        this.connectionString,
+        this.label,
+        'subscription',
+        this.topicName,
+        async () => {
+          // Refresh when new message arrives
+          await this.refresh(provider)
+        },
+      )
+      this.iconPath = new vscode.ThemeIcon('bell', new vscode.ThemeColor('charts.green'))
+    }
+    provider.refresh(this)
   }
 }

@@ -5,6 +5,7 @@ import * as service from '../utils/serviceBusService'
 import { IInteractableItem } from '../interfaces/IInteractableItem'
 import { MessagesWebView } from '../views/messagesWebView'
 import { mapQueueToDep } from '../utils/dependencyMapper'
+import { ErrorHandler } from '../utils/errorHandler'
 
 export class QueueItem extends SbDependencyBase implements IInteractableItem {
   constructor(
@@ -56,20 +57,44 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
 
   transfer = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.transferQueueDl(this.connectionString, this.label)
-    await this.refresh(provider)
+    try {
+      await ErrorHandler.withProgress(
+        `Transferring deadletter messages from '${this.label}'...`,
+        () => service.transferQueueDl(this.connectionString, this.label)
+      )
+      vscode.window.showInformationMessage(`Successfully transferred deadletter messages from queue '${this.label}'`)
+      await this.refresh(provider)
+    } catch (error) {
+      provider.refresh(this)
+    }
   }
 
   purge = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.purgeQueueMessages(this.connectionString, this.label)
-    await this.refresh(provider)
+    try {
+      await ErrorHandler.withProgress(
+        `Purging messages from '${this.label}'...`,
+        () => service.purgeQueueMessages(this.connectionString, this.label)
+      )
+      vscode.window.showInformationMessage(`Successfully purged messages from queue '${this.label}'`)
+      await this.refresh(provider)
+    } catch (error) {
+      provider.refresh(this)
+    }
   }
 
   purgeDl = async (provider: ServiceBusProvider) => {
     this.setLoading(provider)
-    await service.purgeQueueDeadLetter(this.connectionString, this.label)
-    await this.refresh(provider)
+    try {
+      await ErrorHandler.withProgress(
+        `Purging deadletter from '${this.label}'...`,
+        () => service.purgeQueueDeadLetter(this.connectionString, this.label)
+      )
+      vscode.window.showInformationMessage(`Successfully purged deadletter from queue '${this.label}'`)
+      await this.refresh(provider)
+    } catch (error) {
+      provider.refresh(this)
+    }
   }
 
   show = async () => {
@@ -91,5 +116,28 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     this.view.panel?.onDidDispose(() => {
       this.view = undefined
     })
+  }
+
+  toggleMonitoring = async (provider: ServiceBusProvider) => {
+    const isMonitoring = service.isMonitoring(this.connectionString, this.label)
+
+    if (isMonitoring) {
+      await service.stopMonitoring(this.connectionString, this.label)
+      this.iconPath = new vscode.ThemeIcon('database')
+    }
+    else {
+      await service.startMonitoring(
+        this.connectionString,
+        this.label,
+        'queue',
+        undefined,
+        async () => {
+          // Refresh when new message arrives
+          await this.refresh(provider)
+        },
+      )
+      this.iconPath = new vscode.ThemeIcon('bell', new vscode.ThemeColor('charts.green'))
+    }
+    provider.refresh(this)
   }
 }
