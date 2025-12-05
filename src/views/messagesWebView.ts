@@ -421,7 +421,8 @@ export class MessagesWebView {
             <div class="panel active" id="messages-panel">
               <div class="filter-container">
                 <input type="text" class="filter-input" id="filter-messages" 
-                       placeholder="Filter messages by ID, body, or properties..." 
+                       placeholder="Filter: text, !exclude, field:value, field:!value, term1 term2 (AND), term1 OR term2" 
+                       title="💡 Filter Tips:\n• !value or -value → exclude\n• field:value → search in specific field\n• field:!value → exclude from field\n• Multiple terms = AND\n• Use OR between terms for OR logic"
                        oninput="filterMessages('messages-panel')" />
               </div>
               ${messagesHtml}
@@ -430,7 +431,8 @@ export class MessagesWebView {
             <div class="panel" id="deadletter-panel">
               <div class="filter-container">
                 <input type="text" class="filter-input" id="filter-deadletter" 
-                       placeholder="Filter messages by ID, body, or properties..." 
+                       placeholder="Filter: text, !exclude, field:value, field:!value, term1 term2 (AND), term1 OR term2" 
+                       title="💡 Filter Tips:\n• !value or -value → exclude\n• field:value → search in specific field\n• field:!value → exclude from field\n• Multiple terms = AND\n• Use OR between terms for OR logic"
                        oninput="filterMessages('deadletter-panel')" />
               </div>
               ${deadLetterHtml}
@@ -490,16 +492,104 @@ export class MessagesWebView {
                   }
               }
 
+              function parseFilter(filterText) {
+                  // Parse advanced filter syntax: !term, -term, field:value, field:!value
+                  // Split by spaces but respect quotes (future enhancement)
+                  const terms = filterText.trim().split(/\s+/);
+                  const filters = [];
+                  
+                  for (const term of terms) {
+                      if (!term) continue;
+                      
+                      // Check if it's an OR separator
+                      if (term.toUpperCase() === 'OR') {
+                          filters.push({ type: 'OR' });
+                          continue;
+                      }
+                      
+                      // Check for field:value or field:!value syntax
+                      const colonIndex = term.indexOf(':');
+                      if (colonIndex > 0) {
+                          const field = term.substring(0, colonIndex).toLowerCase();
+                          let value = term.substring(colonIndex + 1);
+                          let negate = false;
+                          
+                          if (value.startsWith('!') || value.startsWith('-')) {
+                              negate = true;
+                              value = value.substring(1);
+                          }
+                          
+                          filters.push({ type: 'field', field, value: value.toLowerCase(), negate });
+                      } else {
+                          // Simple term with optional negation
+                          let value = term;
+                          let negate = false;
+                          
+                          if (value.startsWith('!') || value.startsWith('-')) {
+                              negate = true;
+                              value = value.substring(1);
+                          }
+                          
+                          filters.push({ type: 'simple', value: value.toLowerCase(), negate });
+                      }
+                  }
+                  
+                  return filters;
+              }
+              
+              function matchesFilter(text, filters) {
+                  if (filters.length === 0) return true;
+                  
+                  let currentGroup = [];
+                  const groups = [currentGroup];
+                  
+                  // Split filters by OR
+                  for (const filter of filters) {
+                      if (filter.type === 'OR') {
+                          currentGroup = [];
+                          groups.push(currentGroup);
+                      } else {
+                          currentGroup.push(filter);
+                      }
+                  }
+                  
+                  // Each group is AND logic, groups are OR logic
+                  return groups.some(group => {
+                      return group.every(filter => {
+                          const matches = text.includes(filter.value);
+                          return filter.negate ? !matches : matches;
+                      });
+                  });
+              }
+
               function filterMessages(panelId) {
                   const panel = document.getElementById(panelId);
                   const filterInput = panel.querySelector('.filter-input');
                   const filterText = filterInput.value.toLowerCase();
                   const messageCards = panel.querySelectorAll('.message-card');
                   
+                  // If empty filter, show all
+                  if (!filterText.trim()) {
+                      let visibleCount = 0;
+                      messageCards.forEach(card => {
+                          card.classList.remove('hidden');
+                          visibleCount++;
+                      });
+                      
+                      if (panelId === 'messages-panel') {
+                          document.getElementById('visible-count-messages').textContent = visibleCount;
+                      } else if (panelId === 'deadletter-panel') {
+                          document.getElementById('visible-count-deadletter').textContent = visibleCount;
+                      }
+                      return;
+                  }
+                  
+                  const filters = parseFilter(filterText);
                   let visibleCount = 0;
+                  
                   messageCards.forEach(card => {
                       const text = card.textContent.toLowerCase();
-                      if (text.includes(filterText)) {
+                      if (matchesFilter(text, filters)) {
                           card.classList.remove('hidden');
                           visibleCount++;
                       } else {
@@ -612,16 +702,15 @@ export class MessagesWebView {
             </div>
 
             ${hasCustomProperties
-          ? `
+              ? `
             <div class="section">
               <div class="section-title">Custom Properties</div>
               <div class="code-block">${this.formatJson(m.applicationProperties)}</div>
             </div>
             `
-          : ''}
-
+              : ''}
             ${m.deadLetterReason || m.deadLetterErrorDescription
-          ? `
+              ? `
             <div class="section">
               <div class="section-title">Dead Letter Information</div>
               <div class="properties-grid">
@@ -631,7 +720,7 @@ export class MessagesWebView {
               </div>
             </div>
             `
-          : ''}
+              : ''}
           </div>
         </div>
       `

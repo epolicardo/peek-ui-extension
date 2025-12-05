@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.2.4] - 2025-12-03
+
+### Fixed
+- ESLint indentation errors in serviceBusService.ts (arrow function parameters)
+- ESLint indentation errors in messagesWebView.ts (ternary operators)
+
+### Added
+- VS Code workspace settings to prevent format conflicts
+  - Disabled formatOnSave to avoid conflicts between ESLint and other formatters
+  - Enabled automatic ESLint fixes on save for consistent code style
+
+
+
+## [0.2.3] - 2025-12-02
+
+### Changed
+- Version bump to 0.2.3
+
+
+
+## [0.2.2] - 2025-12-02
+
+### Added
+- User can now choose between Peek and Receive modes when viewing messages
+- Peek mode: reads from one partition, no side effects (no delivery count increment)
+- Receive mode: reads from ALL partitions, increments delivery count
+- User can specify custom message amount to retrieve (1-1000), independent of queue count
+- Footer in webview showing message counts that update with filters
+- Footer warning about delivery count increment for transparency
+
+### Changed
+- Peek mode now performs 5 parallel peek operations to increase partition coverage
+- Automatic deduplication by messageId to avoid showing duplicate messages
+- Parallel loading of active and deadletter messages for better performance
+- Optimized abandon operations to run in parallel within each batch
+- Simplified message retrieval dialogs with clearer options
+
+### Fixed
+- Resolved TypeScript compilation errors with QuickPickItem custom properties
+- Fixed trailing comma linting issues
+- Corrected sequence number type handling (Long vs bigint)
+- Footer styling now uses editor background color for better integration
+
+
+
 ## [0.2.1] - 2025-12-02
 
 ### Security

@@ -271,36 +271,41 @@ const peekMessagesWithPeekLock = async (receiver: ServiceBusReceiver, amount: nu
     }
 
     const allMessages: ServiceBusReceivedMessage[] = []
-    const maxPerCall = 256 // Maximum messages per peekMessages call
+    const messageIds = new Set<string>()
+    const iterations = 50 // Number of peek attempts to get messages from different partitions
 
-    // If amount is <= 256, do a single call
-    if (amount <= maxPerCall) {
-      const messages = await receiver.peekMessages(amount)
-      console.log(`[peekMessagesWithPeekLock] Single call: Received ${messages.length} messages via peek`)
-      return messages
-    }
+    console.log(`[peekMessagesWithPeekLock] Launching ${iterations} parallel peek operations to collect unique messages`)
 
-    // For amounts > 256, make multiple calls
-    console.log(`[peekMessagesWithPeekLock] Amount ${amount} exceeds ${maxPerCall}, will make multiple calls`)
+    // Launch multiple peek operations in parallel to increase chances of hitting different partitions
+    const peekPromises = Array.from({ length: iterations }, (_, i) =>
+      receiver.peekMessages(amount)
+        .then((batch) => {
+          console.log(`[peekMessagesWithPeekLock] Peek ${i + 1}/${iterations}: Received ${batch.length} messages`)
+          return batch
+        })
+        .catch((err) => {
+          console.error(`[peekMessagesWithPeekLock] Peek ${i + 1}/${iterations}: Error - ${err}`)
+          return []
+        }),
+    )
 
-    while (allMessages.length < amount) {
-      const remaining = amount - allMessages.length
-      const batchSize = Math.min(remaining, maxPerCall)
+    const batches = await Promise.all(peekPromises)
 
-      console.log(`[peekMessagesWithPeekLock] Calling peekMessages for ${batchSize} messages`)
-      const batch = await receiver.peekMessages(batchSize)
-
-      console.log(`[peekMessagesWithPeekLock] Received ${batch.length} messages in this batch`)
-
-      if (batch.length === 0) {
-        console.log(`[peekMessagesWithPeekLock] No more messages available, stopping`)
-        break
+    // Deduplicate and collect all unique messages
+    for (const [index, batch] of batches.entries()) {
+      let newMessagesCount = 0
+      for (const message of batch) {
+        const msgId = message.messageId?.toString() || ''
+        if (msgId && !messageIds.has(msgId)) {
+          messageIds.add(msgId)
+          allMessages.push(message)
+          newMessagesCount++
+        }
       }
-
-      allMessages.push(...batch)
+      console.log(`[peekMessagesWithPeekLock] Batch ${index + 1}/${iterations}: Added ${newMessagesCount} unique messages (total: ${allMessages.length})`)
     }
 
-    console.log(`[peekMessagesWithPeekLock] Completed. Returning ${allMessages.length} messages total`)
+    console.log(`[peekMessagesWithPeekLock] Completed ${iterations} parallel peeks. Returning ${allMessages.length} unique messages`)
     return allMessages
   }
   finally {

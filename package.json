@@ -2,7 +2,7 @@
   "name": "peek-a-bus",
   "displayName": "Peek a Bus",
   "description": "Azure Service Bus management tool - Modified version of Peek UI by horgen",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "icon": "images/peekabus_icon-removebg-preview.png",
   "publisher": "epolicardo",
   "author": {

@@ -68,8 +68,8 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
         ],
         {
           placeHolder: 'Choose how to retrieve messages',
-          ignoreFocusOut: true
-        }
+          ignoreFocusOut: true,
+        },
       )
 
       if (!mode) {
@@ -89,7 +89,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
           }
           return null
         },
-        ignoreFocusOut: true
+        ignoreFocusOut: true,
       })
 
       if (!amountStr) {
@@ -105,7 +105,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
         this.label,
         amount,
         Math.min(this.deadLetterMessageCount, amount),
-        useReceiveMode
+        useReceiveMode,
       )
       console.log(`[QueueItem.updateView] Received messages - Active: ${messagesDetails.messages.length}, DL: ${messagesDetails.deadletter.length}`)
       this.view.update(messagesDetails)
@@ -182,8 +182,8 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
         ],
         {
           placeHolder: 'Choose how to retrieve messages',
-          ignoreFocusOut: true
-        }
+          ignoreFocusOut: true,
+        },
       )
 
       if (!mode) {
@@ -203,7 +203,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
           }
           return null
         },
-        ignoreFocusOut: true
+        ignoreFocusOut: true,
       })
 
       if (!amountStr) {
@@ -219,7 +219,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
         this.label,
         amount,
         Math.min(this.deadLetterMessageCount, amount),
-        useReceiveMode
+        useReceiveMode,
       )
       console.log(`[QueueItem.show] Received messages - Active: ${messagesDetails.messages.length}, DL: ${messagesDetails.deadletter.length}`)
     }
