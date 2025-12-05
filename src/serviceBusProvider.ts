@@ -5,6 +5,7 @@ import { mapQueueToDep, mapSubscriptionToDep, mapTopicToDep, mapUnconnectedSbToD
 import { SbDependencyBase } from './models/SbDependencyBase'
 import { ServiceBusItem } from './models/ServiceBusItem'
 import { TopicItem } from './models/TopicItem'
+import { CategoryItem } from './models/CategoryItem'
 import { ErrorHandler } from './utils/errorHandler'
 
 export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyBase> {
@@ -22,7 +23,7 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
   }
 
   async editConnectionAlias(node: ServiceBusItem): Promise<void> {
-    const current = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
+    const current = this.state.get<IServiceBusItem[]>('peekabus.peek-a-bus.state', [])
     const item = current.find(c => c.name === node.label || c.alias === node.label)
 
     if (!item) {
@@ -43,14 +44,14 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
 
     // Update the item
     item.alias = newAlias || undefined
-    await this.state.update('horgen.peek-ui.state', current)
+    await this.state.update('peekabus.peek-a-bus.state', current)
 
     // Update alias mapping
     if (newAlias) {
-      await this.context.globalState.update(`horgen.peek-ui.alias.${item.name}`, newAlias)
+      await this.context.globalState.update(`peekabus.peek-a-bus.alias.${item.name}`, newAlias)
     }
     else {
-      await this.context.globalState.update(`horgen.peek-ui.alias.${item.name}`, undefined)
+      await this.context.globalState.update(`peekabus.peek-a-bus.alias.${item.name}`, undefined)
     }
 
     vscode.window.showInformationMessage(`Connection alias updated to '${newAlias || item.name}'`)
@@ -70,23 +71,23 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
     }
 
     try {
-      const current = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
+      const current = this.state.get<IServiceBusItem[]>('peekabus.peek-a-bus.state', [])
       const item = current.find(c => c.name === serviceBusName)
 
       if (item) {
         // Get connection string to close the client
-        const connectionString = await this.context.secrets.get(`horgen.peek-ui.connection.${serviceBusName}`)
+        const connectionString = await this.context.secrets.get(`peekabus.peek-a-bus.connection.${serviceBusName}`)
 
         // Close the Service Bus client
         if (connectionString) {
           const { ServiceBusClientManager } = await import('./utils/serviceBusClientManager.js')
           await ServiceBusClientManager.closeClient(connectionString)
         } // Remove from secrets
-        await this.context.secrets.delete(`horgen.peek-ui.connection.${serviceBusName}`)
+        await this.context.secrets.delete(`peekabus.peek-a-bus.connection.${serviceBusName}`)
 
         // Remove from state
         const updated = current.filter(c => c.name !== serviceBusName)
-        await this.state.update('horgen.peek-ui.state', updated)
+        await this.state.update('peekabus.peek-a-bus.state', updated)
 
         vscode.window.showInformationMessage(`Connection to '${serviceBusName}' removed successfully`)
         this.refresh()
@@ -94,6 +95,125 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
     }
     catch (error) {
       ErrorHandler.handleError(error, `removing connection to '${serviceBusName}'`)
+    }
+  }
+
+  async exportConnections(): Promise<void> {
+    try {
+      const current = this.state.get<IServiceBusItem[]>('peekabus.peek-a-bus.state', [])
+
+      if (current.length === 0) {
+        vscode.window.showInformationMessage('No connections to export')
+        return
+      }
+
+      const exportData = []
+      for (const item of current) {
+        const connectionString = await this.context.secrets.get(`peekabus.peek-a-bus.connection.${item.name}`)
+        if (connectionString) {
+          exportData.push({
+            name: item.name,
+            alias: item.alias,
+            connectionString,
+          })
+        }
+      }
+
+      const exportJson = JSON.stringify(exportData, null, 2)
+
+      // Show save dialog
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file('service-bus-connections.json'),
+        filters: {
+          'JSON Files': ['json'],
+          'All Files': ['*'],
+        },
+      })
+
+      if (uri) {
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(exportJson, 'utf8'))
+        vscode.window.showInformationMessage(`Exported ${exportData.length} connection(s) to ${uri.fsPath}`)
+      }
+    }
+    catch (error) {
+      ErrorHandler.handleError(error, 'exporting connections')
+    }
+  }
+
+  async importConnections(): Promise<void> {
+    try {
+      // Show open dialog
+      const uris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: {
+          'JSON Files': ['json'],
+          'All Files': ['*'],
+        },
+        openLabel: 'Import',
+      })
+
+      if (!uris || uris.length === 0) {
+        return
+      }
+
+      const fileContent = await vscode.workspace.fs.readFile(uris[0])
+      const importData = JSON.parse(fileContent.toString())
+
+      if (!Array.isArray(importData)) {
+        vscode.window.showErrorMessage('Invalid import file format')
+        return
+      }
+
+      const current = this.state.get<IServiceBusItem[]>('peekabus.peek-a-bus.state', [])
+      let imported = 0
+      let skipped = 0
+
+      for (const item of importData) {
+        if (!item.name || !item.connectionString) {
+          continue
+        }
+
+        // Check if already exists
+        if (current.find(c => c.name === item.name)) {
+          skipped++
+          continue
+        }
+
+        // Validate connection string
+        const validationError = ErrorHandler.validateConnectionString(item.connectionString)
+        if (validationError) {
+          vscode.window.showWarningMessage(`Skipping ${item.name}: ${validationError}`)
+          skipped++
+          continue
+        }
+
+        // Store connection string
+        await this.context.secrets.store(`peekabus.peek-a-bus.connection.${item.name}`, item.connectionString)
+
+        // Store metadata
+        current.push({
+          name: item.name,
+          alias: item.alias,
+          connectionString: '',
+        })
+
+        // Store alias if provided
+        if (item.alias) {
+          await this.context.globalState.update(`peekabus.peek-a-bus.alias.${item.name}`, item.alias)
+        }
+
+        imported++
+      }
+
+      await this.state.update('peekabus.peek-a-bus.state', current)
+
+      vscode.window.showInformationMessage(
+        `Import complete: ${imported} connection(s) imported, ${skipped} skipped`,
+      )
+      this.refresh()
+    }
+    catch (error) {
+      ErrorHandler.handleError(error, 'importing connections')
     }
   }
 
@@ -130,7 +250,7 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
         () => service.getServiceBusInfo(input),
       )
 
-      const current = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
+      const current = this.state.get<IServiceBusItem[]>('peekabus.peek-a-bus.state', [])
 
       // Check if connection already exists
       if (current.find(c => c.name === sbInfo.serviceBusName)) {
@@ -139,15 +259,15 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
       }
 
       // Store connection string securely in secrets
-      await this.context.secrets.store(`horgen.peek-ui.connection.${sbInfo.serviceBusName}`, input)
+      await this.context.secrets.store(`peekabus.peek-a-bus.connection.${sbInfo.serviceBusName}`, input)
 
       // Store the name and optional alias in state (not the connection string)
       const updated = [...current, { connectionString: '', name: sbInfo.serviceBusName, alias: alias || undefined }]
-      await this.state.update('horgen.peek-ui.state', updated)
+      await this.state.update('peekabus.peek-a-bus.state', updated)
 
       // Store alias mapping for favorites
       if (alias) {
-        await this.context.globalState.update(`horgen.peek-ui.alias.${sbInfo.serviceBusName}`, alias)
+        await this.context.globalState.update(`peekabus.peek-a-bus.alias.${sbInfo.serviceBusName}`, alias)
       }
 
       const displayName = alias || sbInfo.serviceBusName
@@ -165,11 +285,11 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
 
   async getChildren(element?: SbDependencyBase): Promise<SbDependencyBase[]> {
     if (!element) {
-      const sbItems = this.state.get<IServiceBusItem[]>('horgen.peek-ui.state', [])
+      const sbItems = this.state.get<IServiceBusItem[]>('peekabus.peek-a-bus.state', [])
 
       // Retrieve connection strings from secrets
       const depsPromises = sbItems.map(async (item) => {
-        const connectionString = await this.context.secrets.get(`horgen.peek-ui.connection.${item.name}`)
+        const connectionString = await this.context.secrets.get(`peekabus.peek-a-bus.connection.${item.name}`)
         const displayName = item.alias || item.name
         const sbItem = mapUnconnectedSbToDep(displayName, connectionString || '')
         // Store the original name in the item for later use
@@ -180,16 +300,49 @@ export class ServiceBusProvider implements vscode.TreeDataProvider<SbDependencyB
       })
 
       const deps = await Promise.all(depsPromises)
-      vscode.commands.executeCommand('setContext', 'horgen.peek-ui:isInitialized', true)
+      vscode.commands.executeCommand('setContext', 'peekabus.peek-a-bus:isInitialized', true)
       return deps.flat()
     }
 
     if (element instanceof ServiceBusItem) {
       if (element.isConnected) {
-        const queues: SbDependencyBase[] = element.queues ? element.queues.map(queue => mapQueueToDep(queue, element.connectionString)) : []
-        const topics: SbDependencyBase[] = element.topics ? element.topics.map(topic => mapTopicToDep(topic, element.connectionString)) : []
-        return Promise.resolve(queues.concat(topics))
+        const categories: SbDependencyBase[] = []
+
+        // Queues category
+        if (element.queues && element.queues.length > 0) {
+          const category = new CategoryItem('Queues', element.queues.length, 'inbox')
+            ; (category as any).parentItem = element
+          ; (category as any).itemType = 'queues'
+          categories.push(category)
+        }
+
+        // Topics category
+        if (element.topics && element.topics.length > 0) {
+          const category = new CategoryItem('Topics', element.topics.length, 'symbol-namespace')
+            ; (category as any).parentItem = element
+          ; (category as any).itemType = 'topics'
+          categories.push(category)
+        }
+
+        // Future: Event Hubs, Notification Hubs, Relays categories can be added here
+
+        return Promise.resolve(categories)
       }
+      return Promise.resolve([])
+    }
+
+    if (element instanceof CategoryItem) {
+      const parentItem = (element as any).parentItem as ServiceBusItem
+      const itemType = (element as any).itemType
+
+      if (itemType === 'queues' && parentItem.queues) {
+        return Promise.resolve(parentItem.queues.map(queue => mapQueueToDep(queue, parentItem.connectionString)))
+      }
+
+      if (itemType === 'topics' && parentItem.topics) {
+        return Promise.resolve(parentItem.topics.map(topic => mapTopicToDep(topic, parentItem.connectionString)))
+      }
+
       return Promise.resolve([])
     }
 

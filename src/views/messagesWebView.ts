@@ -9,15 +9,17 @@ export class MessagesWebView {
   constructor(private dependency: SbDependencyBase, private messagesDetails: ServiceBusMessageDetails) { }
 
   public reveal() {
-    if (this.panel?.visible === false) {
+    if (this.panel) {
       this.panel.reveal()
     }
   }
 
   public update(messagesDetails: ServiceBusMessageDetails) {
-    if (this.panel?.visible) {
+    console.log(`[MessagesWebView.update] Received - Active: ${messagesDetails.messages.length}, DL: ${messagesDetails.deadletter.length}`)
+    if (this.panel) {
       this.messagesDetails = messagesDetails
       this.panel.webview.html = this.getWebviewContent()
+      console.log(`[MessagesWebView.update] Updated webview content`)
     }
   }
 
@@ -100,7 +102,8 @@ export class MessagesWebView {
       )
 
       vscode.window.showInformationMessage(`Message resent successfully to '${destination}'`)
-    } catch (error) {
+    }
+    catch (error) {
       vscode.window.showErrorMessage(`Failed to resend message: ${error}`)
     }
   }
@@ -241,6 +244,22 @@ export class MessagesWebView {
                 margin-bottom: 0;
               }
               .section-title {
+                              .copy-icon {
+                                display: inline-block;
+                                vertical-align: middle;
+                                margin-left: 8px;
+                                cursor: pointer;
+                                opacity: 0.7;
+                                transition: opacity 0.15s;
+                                width: 16px;
+                                height: 16px;
+                              }
+                              .copy-icon:hover {
+                                opacity: 1;
+                              }
+                              .copy-icon:active {
+                                opacity: 0.5;
+                              }
                 font-weight: bold;
                 margin-bottom: 8px;
                 color: var(--vscode-textPreformat-foreground);
@@ -254,31 +273,15 @@ export class MessagesWebView {
                 border-radius: 4px;
                 padding: 12px;
                 overflow-x: auto;
+                overflow-y: auto;
+                max-height: 400px;
                 font-family: var(--vscode-editor-font-family);
                 font-size: 13px;
                 line-height: 1.5;
                 white-space: pre-wrap;
                 word-break: break-all;
               }
-              /* JSON syntax highlighting */
-              .json-key {
-                color: var(--vscode-symbolIcon-variableForeground);
-              }
-              .json-string {
-                color: var(--vscode-debugTokenExpression-string);
-              }
-              .json-number {
-                color: var(--vscode-debugTokenExpression-number);
-              }
-              .json-boolean {
-                color: var(--vscode-debugTokenExpression-boolean);
-              }
-              .json-null {
-                color: var(--vscode-debugTokenExpression-name);
-              }
-              .json-punctuation {
-                color: var(--vscode-editor-foreground);
-              }
+
               .properties-grid {
                 display: grid;
                 grid-template-columns: auto 1fr;
@@ -300,22 +303,25 @@ export class MessagesWebView {
                 font-style: italic;
               }
               .filter-container {
-                margin-bottom: 16px;
-                position: sticky;
-                top: 0;
-                background: var(--vscode-editor-background);
-                z-index: 10;
-                padding: 8px 0;
+                 margin-bottom: 16px;
+                 position: sticky;
+                 top: 0;
+                 background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+                 z-index: 10;
+                 padding: 8px 0;
+                 border-bottom: 1px solid var(--vscode-panel-border);
+                 box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);
               }
               .filter-input {
-                width: 100%;
-                padding: 8px 12px;
-                background: var(--vscode-input-background);
-                color: var(--vscode-input-foreground);
-                border: 1px solid var(--vscode-input-border);
-                border-radius: 4px;
-                font-family: var(--vscode-font-family);
-                font-size: 13px;
+                 width: 100%;
+                 padding: 8px 12px;
+                 background: var(--vscode-input-background);
+                 color: var(--vscode-input-foreground);
+                 border: 1px solid var(--vscode-input-border);
+                 border-radius: 4px;
+                 font-family: var(--vscode-font-family);
+                 font-size: 13px;
+                 box-shadow: 0 1px 6px 0 rgba(0,0,0,0.07);
               }
               .filter-input:focus {
                 outline: 1px solid var(--vscode-focusBorder);
@@ -333,21 +339,71 @@ export class MessagesWebView {
                 align-items: center;
               }
               .resend-button {
-                padding: 4px 12px;
-                background: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                border: none;
-                border-radius: 3px;
-                cursor: pointer;
-                font-size: 11px;
-                font-weight: bold;
-                transition: background 0.1s;
+                 padding: 4px 8px;
+                 background: var(--vscode-button-background);
+                 color: var(--vscode-button-foreground);
+                 border: none;
+                 border-radius: 3px;
+                 cursor: pointer;
+                 font-size: 14px;
+                 display: flex;
+                 align-items: center;
+                 gap: 4px;
+                 transition: background 0.1s;
+                 position: relative;
               }
               .resend-button:hover {
                 background: var(--vscode-button-hoverBackground);
               }
+              .resend-label {
+                display: none;
+                margin-left: 4px;
+                font-size: 11px;
+                font-weight: bold;
+                color: var(--vscode-button-foreground);
+                pointer-events: none;
+              }
+              .resend-button:hover .resend-label {
+                display: inline;
+              }
               .resend-button:active {
                 background: var(--vscode-button-secondaryBackground);
+              }
+              .footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: var(--vscode-editor-background);
+                border-top: 1px solid var(--vscode-panel-border);
+                padding: 8px 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 12px;
+                color: var(--vscode-editor-foreground);
+                z-index: 100;
+                box-shadow: none;
+              }
+              .footer-left {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+              }
+              .footer-count {
+                font-weight: bold;
+              }
+              .footer-warning {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                color: var(--vscode-notificationsWarningIcon-foreground);
+              }
+              .warning-icon {
+                font-size: 14px;
+              }
+              body {
+                padding-bottom: 40px;
               }
           </style>
       </head>
@@ -378,6 +434,21 @@ export class MessagesWebView {
                        oninput="filterMessages('deadletter-panel')" />
               </div>
               ${deadLetterHtml}
+            </div>
+          </div>
+
+          <div class="footer">
+            <div class="footer-left">
+              <span class="footer-count">
+                <span id="visible-count-messages">0</span> / <span id="total-count-messages">${this.messagesDetails.messages.length}</span> messages
+              </span>
+              <span class="footer-count" style="margin-left: 12px;">
+                <span id="visible-count-deadletter">0</span> / <span id="total-count-deadletter">${this.messagesDetails.deadletter.length}</span> deadletter
+              </span>
+            </div>
+            <div class="footer-warning">
+              <span class="warning-icon">⚠️</span>
+              <span>Viewing messages from partitioned entities increments delivery count</span>
             </div>
           </div>
 
@@ -425,15 +496,30 @@ export class MessagesWebView {
                   const filterText = filterInput.value.toLowerCase();
                   const messageCards = panel.querySelectorAll('.message-card');
                   
+                  let visibleCount = 0;
                   messageCards.forEach(card => {
                       const text = card.textContent.toLowerCase();
                       if (text.includes(filterText)) {
                           card.classList.remove('hidden');
+                          visibleCount++;
                       } else {
                           card.classList.add('hidden');
                       }
                   });
+                  
+                  // Update footer count based on active panel
+                  if (panelId === 'messages-panel') {
+                      document.getElementById('visible-count-messages').textContent = visibleCount;
+                  } else if (panelId === 'deadletter-panel') {
+                      document.getElementById('visible-count-deadletter').textContent = visibleCount;
+                  }
               }
+              
+              // Initialize counts on load
+              window.addEventListener('DOMContentLoaded', () => {
+                  document.getElementById('visible-count-messages').textContent = ${this.messagesDetails.messages.length};
+                  document.getElementById('visible-count-deadletter').textContent = ${this.messagesDetails.deadletter.length};
+              });
 
               function resendMessage(messageIndex, isDeadletter) {
                   const vscode = acquireVsCodeApi();
@@ -469,14 +555,40 @@ export class MessagesWebView {
             </div>
             <div class="message-actions">
               <button class="resend-button" onclick="event.stopPropagation(); resendMessage(${index}, ${this.messagesDetails.deadletter.includes(m)})">
-                📤 Resend
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                <span class="resend-label">Resend</span>
               </button>
             </div>
           </div>
           <div class="message-body" id="body-${index}">
             <div class="section">
-              <div class="section-title">Message Body</div>
+              <div class="section-title" style="display: flex; align-items: center; gap: 4px;">
+                Message Body
+                <span class="copy-icon" title="Copy body" onclick="copyBodyText(${index})">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </span>
+              </div>
               <div class="code-block">${bodyContent}</div>
+              <script>
+                function copyBodyText(idx) {
+                  const codeBlock = document.querySelectorAll('.code-block')[idx];
+                  if (!codeBlock) return;
+                  // Obtener solo el texto plano (sin HTML)
+                  const temp = document.createElement('textarea');
+                  temp.value = codeBlock.innerText;
+                  document.body.appendChild(temp);
+                  temp.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(temp);
+                  // Feedback visual
+                  const icon = document.querySelectorAll('.copy-icon')[idx];
+                  if (icon) {
+                    icon.style.opacity = '1';
+                    icon.title = 'Copied!';
+                    setTimeout(() => { icon.title = 'Copy body'; icon.style.opacity = '0.7'; }, 1200);
+                  }
+                }
+              </script>
             </div>
 
             <div class="section">
@@ -499,14 +611,17 @@ export class MessagesWebView {
               </div>
             </div>
 
-            ${hasCustomProperties ? `
+            ${hasCustomProperties
+          ? `
             <div class="section">
               <div class="section-title">Custom Properties</div>
               <div class="code-block">${this.formatJson(m.applicationProperties)}</div>
             </div>
-            ` : ''}
+            `
+          : ''}
 
-            ${m.deadLetterReason || m.deadLetterErrorDescription ? `
+            ${m.deadLetterReason || m.deadLetterErrorDescription
+          ? `
             <div class="section">
               <div class="section-title">Dead Letter Information</div>
               <div class="properties-grid">
@@ -515,7 +630,8 @@ export class MessagesWebView {
                 ${this.renderProperty('Dead Letter Source', m.deadLetterSource)}
               </div>
             </div>
-            ` : ''}
+            `
+          : ''}
           </div>
         </div>
       `
@@ -530,17 +646,18 @@ export class MessagesWebView {
     }
 
     if (typeof body === 'string') {
-      // Try to parse as JSON
+      // Try to parse as JSON for pretty printing
       try {
         const parsed = JSON.parse(body)
-        return this.syntaxHighlightJson(parsed)
-      } catch {
-        return this.escapeHtml(body)
+        return (JSON.stringify(parsed, null, 2))
+      }
+      catch {
+        return (body)
       }
     }
 
     if (typeof body === 'object') {
-      return this.syntaxHighlightJson(body)
+      return this.escapeHtml(JSON.stringify(body, null, 2))
     }
 
     return this.escapeHtml(String(body))
@@ -548,41 +665,11 @@ export class MessagesWebView {
 
   private formatJson(obj: unknown): string {
     try {
-      return this.syntaxHighlightJson(obj)
-    } catch {
+      return this.escapeHtml(JSON.stringify(obj, null, 2))
+    }
+    catch {
       return this.escapeHtml(String(obj))
     }
-  }
-
-  private syntaxHighlightJson(obj: unknown): string {
-    let json = JSON.stringify(obj, null, 2)
-
-    // Escape HTML first
-    json = json.replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-
-    // Apply syntax highlighting
-    json = json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, (match) => {
-      let cls = 'json-string'
-      if (/:$/.test(match)) {
-        // It's a key
-        cls = 'json-key'
-        return `<span class="${cls}">${match}</span>`
-      }
-      return `<span class="${cls}">${match}</span>`
-    })
-
-    // Numbers
-    json = json.replace(/\b(-?\d+\.?\d*)\b(?!["<])/g, '<span class="json-number">$1</span>')
-
-    // Booleans
-    json = json.replace(/\b(true|false)\b/g, '<span class="json-boolean">$1</span>')
-
-    // Null
-    json = json.replace(/\b(null)\b/g, '<span class="json-null">$1</span>')
-
-    return json
   }
 
   private renderProperty(key: string, value: unknown): string {
@@ -605,8 +692,8 @@ export class MessagesWebView {
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
-      "'": '&#039;',
+      '\'': '&#039;',
     }
-    return text.replace(/[&<>"']/g, (m) => map[m])
+    return text.replace(/[&<>"']/g, m => map[m])
   }
 }

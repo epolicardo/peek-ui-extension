@@ -31,37 +31,49 @@ export const getServiceBusInfo = async (connectionString: string): Promise<Servi
 
     const nameSpace = await client.getNamespaceProperties()
     const serviceBusName = nameSpace.name
-    const queues = client.listQueuesRuntimeProperties().byPage() as AsyncIterableIterator<EntitiesResponse<QueueRuntimeProperties>>
-    const topics = client.listTopicsRuntimeProperties().byPage() as AsyncIterableIterator<EntitiesResponse<TopicRuntimeProperties>>
 
-    const queueResults: QueueRuntimeProperties[] = []
-    const topicResults: TopicCustomProperties[] = []
-    const topicRuntimeResults: TopicRuntimeProperties[] = []
+    // Load queues and topics in parallel
+    const [queueResults, topicRuntimeResults] = await Promise.all([
+      (async () => {
+        const results: QueueRuntimeProperties[] = []
+        const queues = client.listQueuesRuntimeProperties().byPage() as AsyncIterableIterator<EntitiesResponse<QueueRuntimeProperties>>
+        for await (const queue of queues) {
+          results.push(...queue)
+        }
+        return results
+      })(),
+      (async () => {
+        const results: TopicRuntimeProperties[] = []
+        const topics = client.listTopicsRuntimeProperties().byPage() as AsyncIterableIterator<EntitiesResponse<TopicRuntimeProperties>>
+        for await (const topic of topics) {
+          results.push(...topic)
+        }
+        return results
+      })(),
+    ])
 
-    for await (const queue of queues) {
-      queueResults.push(...queue)
-    }
+    // Load all subscriptions in parallel for all topics
+    const topicResults = await Promise.all(
+      topicRuntimeResults.map(async (topic) => {
+        const subscriptionResults: SubscriptionRuntimeProperties[] = []
+        const subscriptions = client
+          .listSubscriptionsRuntimeProperties(topic.name)
+          .byPage() as AsyncIterableIterator<EntitiesResponse<SubscriptionRuntimeProperties>>
 
-    for await (const topic of topics) {
-      topicRuntimeResults.push(...topic)
-    }
+        for await (const subscription of subscriptions) {
+          subscriptionResults.push(...subscription)
+        }
 
-    for await (const topic of topicRuntimeResults) {
-      const subscriptions = client
-        .listSubscriptionsRuntimeProperties(topic.name)
-        .byPage() as AsyncIterableIterator<EntitiesResponse<SubscriptionRuntimeProperties>>
-      const subscriptionResults: SubscriptionRuntimeProperties[] = []
-      for await (const subscription of subscriptions) {
-        subscriptionResults.push(...subscription)
-      }
-      topicResults.push({
-        properties: topic,
-        subscriptions: subscriptionResults,
-      })
-    }
+        return {
+          properties: topic,
+          subscriptions: subscriptionResults,
+        }
+      }),
+    )
 
     return { connectionString, serviceBusName, queues: queueResults, topics: topicResults }
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, 'connecting to Service Bus')
     throw error
   }
@@ -71,7 +83,8 @@ export const getQueueRuntimeProperties = async (connectionString: string, queue:
   try {
     const client = ServiceBusClientManager.getAdminClient(connectionString)
     return await client.getQueueRuntimeProperties(queue)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `getting properties for queue '${queue}'`)
     throw error
   }
@@ -89,7 +102,8 @@ export const getTopicCustomProperties = async (connectionString: string, topic: 
       subscriptionResults.push(...subscription)
     }
     return { properties: topicRuntimeProperties, subscriptions: subscriptionResults }
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `getting properties for topic '${topic}'`)
     throw error
   }
@@ -99,61 +113,57 @@ export const getSubscriptionRuntimeProperties = async (connectionString: string,
   try {
     const client = ServiceBusClientManager.getAdminClient(connectionString)
     return await client.getSubscriptionRuntimeProperties(topic, subscription)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `getting properties for subscription '${subscription}'`)
     throw error
   }
 }
 
-export const peekQueueMessages = async (connectionString: string, queue: string, amount: number, dlAmount: number): Promise<ServiceBusMessageDetails> => {
+export const peekQueueMessages = async (connectionString: string, queue: string, amount: number, dlAmount: number, useReceiveMode = true): Promise<ServiceBusMessageDetails> => {
   if (amount < 1 && dlAmount < 1) {
     return { messages: [], deadletter: [] }
-  }
-  // Service Bus supports up to 100 messages in peekMessages
-  if (amount > 100) {
-    amount = 100
-  }
-  if (dlAmount > 100) {
-    dlAmount = 100
   }
 
   try {
     const client = ServiceBusClientManager.getClient(connectionString)
-    const receiver = client.createReceiver(queue, { receiveMode: 'peekLock' })
-    const messages = await peekMessages(receiver, amount)
+    const peekFn = useReceiveMode ? receiveAndAbandonMessages : peekMessagesWithPeekLock
 
-    const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-    const deadletter = await peekMessages(dlReceiver, dlAmount)
+    // Load active and deadletter messages in parallel for better performance
+    const [messages, deadletter] = await Promise.all([
+      amount > 0 ? peekFn(client.createReceiver(queue, { receiveMode: 'peekLock' }), amount) : Promise.resolve([]),
+      dlAmount > 0 ? peekFn(client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' }), dlAmount) : Promise.resolve([]),
+    ])
 
     return { messages, deadletter }
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `peeking messages from queue '${queue}'`)
     throw error
   }
 }
 
-export const peekSubscriptionMessages = async (connectionString: string, topic: string, subscription: string, amount: number, dlAmount: number): Promise<ServiceBusMessageDetails> => {
+export const peekSubscriptionMessages = async (connectionString: string, topic: string, subscription: string, amount: number, dlAmount: number, useReceiveMode = true): Promise<ServiceBusMessageDetails> => {
   if (amount < 1 && dlAmount < 1) {
     return { messages: [], deadletter: [] }
-  }
-  // Service Bus supports up to 100 messages in peekMessages
-  if (amount > 100) {
-    amount = 100
-  }
-  if (dlAmount > 100) {
-    dlAmount = 100
   }
 
   try {
     const client = ServiceBusClientManager.getClient(connectionString)
-    const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock' })
-    const messages = await peekMessages(receiver, amount)
+    const peekFn = useReceiveMode ? receiveAndAbandonMessages : peekMessagesWithPeekLock
+    console.log(`[peekSubscriptionMessages] Requesting ${amount} active and ${dlAmount} DL messages in parallel (mode: ${useReceiveMode ? 'receive' : 'peek'})`)
 
-    const dlReceiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
-    const deadletter = await peekMessages(dlReceiver, dlAmount)
+    // Load active and deadletter messages in parallel for better performance
+    const [messages, deadletter] = await Promise.all([
+      amount > 0 ? peekFn(client.createReceiver(topic, subscription, { receiveMode: 'peekLock' }), amount) : Promise.resolve([]),
+      dlAmount > 0 ? peekFn(client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' }), dlAmount) : Promise.resolve([]),
+    ])
+
+    console.log(`[peekSubscriptionMessages] Received ${messages.length} active and ${deadletter.length} DL messages`)
 
     return { messages, deadletter }
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `peeking messages from subscription '${subscription}'`)
     throw error
   }
@@ -164,7 +174,8 @@ export const purgeQueueMessages = async (connectionString: string, queue: string
     const client = ServiceBusClientManager.getClient(connectionString)
     const receiver = client.createReceiver(queue, { receiveMode: 'peekLock' })
     await completeMessages(receiver)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `purging messages from queue '${queue}'`)
     throw error
   }
@@ -175,7 +186,8 @@ export const purgeQueueDeadLetter = async (connectionString: string, queue: stri
     const client = ServiceBusClientManager.getClient(connectionString)
     const receiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
     await completeMessages(receiver)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `purging deadletter from queue '${queue}'`)
     throw error
   }
@@ -187,7 +199,8 @@ export const transferQueueDl = async (connectionString: string, queue: string): 
     const sender = client.createSender(queue)
     const dlReceiver = client.createReceiver(queue, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
     await transferMessages(dlReceiver, sender)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `transferring deadletter messages from queue '${queue}'`)
     throw error
   }
@@ -198,7 +211,8 @@ export const purgeSubscriptionMessages = async (connectionString: string, topic:
     const client = ServiceBusClientManager.getClient(connectionString)
     const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock' })
     await completeMessages(receiver)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `purging messages from subscription '${subscription}'`)
     throw error
   }
@@ -209,7 +223,8 @@ export const purgeSubscriptionDeadletter = async (connectionString: string, topi
     const client = ServiceBusClientManager.getClient(connectionString)
     const receiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
     await completeMessages(receiver)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `purging deadletter from subscription '${subscription}'`)
     throw error
   }
@@ -221,7 +236,8 @@ export const transferSubscriptionDl = async (connectionString: string, topic: st
     const sender = client.createSender(topic)
     const dlReceiver = client.createReceiver(topic, subscription, { receiveMode: 'peekLock', subQueueType: 'deadLetter' })
     await transferMessages(dlReceiver, sender)
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `transferring deadletter messages from subscription '${subscription}'`)
     throw error
   }
@@ -244,9 +260,105 @@ const completeMessages = async (receiver: ServiceBusReceiver) => {
   }
 }
 
-const peekMessages = async (receiver: ServiceBusReceiver, amount: number) => {
+// Peek mode: uses peekMessages() - reads from all partitions, no side effects (no deliveryCount increment)
+// Note: peekMessages has a limit of ~256 messages per call, so we need to call it multiple times for larger amounts
+const peekMessagesWithPeekLock = async (receiver: ServiceBusReceiver, amount: number) => {
   try {
-    return amount > 0 ? await receiver.peekMessages(amount) : []
+    console.log(`[peekMessagesWithPeekLock] Called with amount: ${amount}`)
+    if (amount <= 0) {
+      console.log(`[peekMessagesWithPeekLock] Amount is 0 or negative, returning empty array`)
+      return []
+    }
+
+    const allMessages: ServiceBusReceivedMessage[] = []
+    const maxPerCall = 256 // Maximum messages per peekMessages call
+
+    // If amount is <= 256, do a single call
+    if (amount <= maxPerCall) {
+      const messages = await receiver.peekMessages(amount)
+      console.log(`[peekMessagesWithPeekLock] Single call: Received ${messages.length} messages via peek`)
+      return messages
+    }
+
+    // For amounts > 256, make multiple calls
+    console.log(`[peekMessagesWithPeekLock] Amount ${amount} exceeds ${maxPerCall}, will make multiple calls`)
+
+    while (allMessages.length < amount) {
+      const remaining = amount - allMessages.length
+      const batchSize = Math.min(remaining, maxPerCall)
+
+      console.log(`[peekMessagesWithPeekLock] Calling peekMessages for ${batchSize} messages`)
+      const batch = await receiver.peekMessages(batchSize)
+
+      console.log(`[peekMessagesWithPeekLock] Received ${batch.length} messages in this batch`)
+
+      if (batch.length === 0) {
+        console.log(`[peekMessagesWithPeekLock] No more messages available, stopping`)
+        break
+      }
+
+      allMessages.push(...batch)
+    }
+
+    console.log(`[peekMessagesWithPeekLock] Completed. Returning ${allMessages.length} messages total`)
+    return allMessages
+  }
+  finally {
+    await receiver.close()
+  }
+}
+
+// Receive mode: uses receiveMessages() + abandonMessage() - reads ALL partitions, increments deliveryCount
+const receiveAndAbandonMessages = async (receiver: ServiceBusReceiver, amount: number) => {
+  try {
+    console.log(`[receiveAndAbandonMessages] Called with amount: ${amount}`)
+    if (amount <= 0) {
+      console.log(`[receiveAndAbandonMessages] Amount is 0 or negative, returning empty array`)
+      return []
+    }
+
+    // Use receiveMessages() + abandonMessage() to read messages from ALL partitions
+    // This increments deliveryCount but is the ONLY way to see all messages in partitioned entities
+    const allMessages: ServiceBusReceivedMessage[] = []
+    const messageIds = new Set<string>()
+    let batchCount = 0
+    const maxBatches = Math.ceil(amount / 10) + 5 // Add buffer for duplicates
+
+    console.log(`[receiveAndAbandonMessages] Starting receive loop, max ${maxBatches} batches`)
+
+    while (allMessages.length < amount && batchCount < maxBatches) {
+      const batch = await receiver.receiveMessages(10, { maxWaitTimeInMs: 2000 })
+      batchCount++
+      console.log(`[receiveAndAbandonMessages] Batch ${batchCount}: received ${batch.length} messages`)
+
+      if (batch.length === 0) {
+        console.log(`[receiveAndAbandonMessages] Empty batch, stopping`)
+        break
+      }
+
+      // Process messages and abandon in parallel
+      const abandonPromises: Promise<void>[] = []
+
+      for (const message of batch) {
+        // Deduplicate by messageId (convert to string for Set)
+        const msgId = message.messageId?.toString() || ''
+        if (msgId && !messageIds.has(msgId)) {
+          messageIds.add(msgId)
+          allMessages.push(message)
+        }
+
+        // Abandon all messages in parallel (fire and forget)
+        abandonPromises.push(receiver.abandonMessage(message))
+      }
+
+      // Wait for all abandon operations to complete before next batch
+      await Promise.all(abandonPromises)
+
+      console.log(`[receiveAndAbandonMessages] Total unique messages so far: ${allMessages.length}`)
+    }
+
+    console.log(`[receiveAndAbandonMessages] Completed. Returning ${allMessages.length} messages after ${batchCount} batches`)
+    return allMessages
   }
   finally {
     await receiver.close()
@@ -293,7 +405,8 @@ export const sendMessage = async (connectionString: string, destination: string,
     finally {
       await sender.close()
     }
-  } catch (error) {
+  }
+  catch (error) {
     ErrorHandler.handleError(error, `sending message to '${destination}'`)
     throw error
   }
@@ -355,7 +468,7 @@ export const startMonitoring = async (
         'View Messages',
       ).then((selection) => {
         if (selection === 'View Messages') {
-          vscode.commands.executeCommand('horgen.peek-ui.showMessages')
+          vscode.commands.executeCommand('peekabus.peek-a-bus.showMessages')
         }
       })
 
@@ -430,6 +543,145 @@ export const stopAllMonitoring = async (): Promise<void> => {
   await Promise.all(monitors.map(m => m.receiver.close()))
   activeMonitors.clear()
   vscode.window.showInformationMessage('🔕 All monitoring stopped')
+}
+
+// Subscription Management
+export const createSubscription = async (
+  connectionString: string,
+  topicName: string,
+  subscriptionName: string,
+  options?: {
+    maxDeliveryCount?: number
+    lockDuration?: string
+    defaultMessageTimeToLive?: string
+    requiresSession?: boolean
+    deadLetteringOnMessageExpiration?: boolean
+  },
+): Promise<void> => {
+  try {
+    const client = ServiceBusClientManager.getAdminClient(connectionString)
+    await client.createSubscription(topicName, subscriptionName, options)
+    vscode.window.showInformationMessage(`Subscription '${subscriptionName}' created successfully`)
+  }
+  catch (error) {
+    ErrorHandler.handleError(error, `creating subscription '${subscriptionName}'`)
+    throw error
+  }
+}
+
+export const deleteSubscription = async (
+  connectionString: string,
+  topicName: string,
+  subscriptionName: string,
+): Promise<void> => {
+  try {
+    const client = ServiceBusClientManager.getAdminClient(connectionString)
+    await client.deleteSubscription(topicName, subscriptionName)
+    vscode.window.showInformationMessage(`Subscription '${subscriptionName}' deleted successfully`)
+  }
+  catch (error) {
+    ErrorHandler.handleError(error, `deleting subscription '${subscriptionName}'`)
+    throw error
+  }
+}
+
+export const updateSubscription = async (
+  connectionString: string,
+  topicName: string,
+  subscriptionName: string,
+  options: {
+    maxDeliveryCount?: number
+    lockDuration?: string
+    defaultMessageTimeToLive?: string
+    deadLetteringOnMessageExpiration?: boolean
+  },
+): Promise<void> => {
+  try {
+    const client = ServiceBusClientManager.getAdminClient(connectionString)
+    const subscription = await client.getSubscription(topicName, subscriptionName)
+
+    // Update properties
+    if (options.maxDeliveryCount !== undefined) {
+      subscription.maxDeliveryCount = options.maxDeliveryCount
+    }
+    if (options.lockDuration !== undefined) {
+      subscription.lockDuration = options.lockDuration
+    }
+    if (options.defaultMessageTimeToLive !== undefined) {
+      subscription.defaultMessageTimeToLive = options.defaultMessageTimeToLive
+    }
+    if (options.deadLetteringOnMessageExpiration !== undefined) {
+      subscription.deadLetteringOnMessageExpiration = options.deadLetteringOnMessageExpiration
+    }
+
+    await client.updateSubscription(subscription)
+    vscode.window.showInformationMessage(`Subscription '${subscriptionName}' updated successfully`)
+  }
+  catch (error) {
+    ErrorHandler.handleError(error, `updating subscription '${subscriptionName}'`)
+    throw error
+  }
+}
+
+// Subscription Rules Management
+export const createSubscriptionRule = async (
+  connectionString: string,
+  topicName: string,
+  subscriptionName: string,
+  ruleName: string,
+  sqlFilter: string,
+): Promise<void> => {
+  try {
+    const client = ServiceBusClientManager.getAdminClient(connectionString)
+    await client.createRule(topicName, subscriptionName, ruleName, { sqlExpression: sqlFilter })
+    vscode.window.showInformationMessage(`Rule '${ruleName}' created successfully`)
+  }
+  catch (error) {
+    ErrorHandler.handleError(error, `creating rule '${ruleName}'`)
+    throw error
+  }
+}
+
+export const deleteSubscriptionRule = async (
+  connectionString: string,
+  topicName: string,
+  subscriptionName: string,
+  ruleName: string,
+): Promise<void> => {
+  try {
+    const client = ServiceBusClientManager.getAdminClient(connectionString)
+    await client.deleteRule(topicName, subscriptionName, ruleName)
+    vscode.window.showInformationMessage(`Rule '${ruleName}' deleted successfully`)
+  }
+  catch (error) {
+    ErrorHandler.handleError(error, `deleting rule '${ruleName}'`)
+    throw error
+  }
+}
+
+export const listSubscriptionRules = async (
+  connectionString: string,
+  topicName: string,
+  subscriptionName: string,
+): Promise<Array<{ name: string, filter: any, action?: any }>> => {
+  try {
+    const client = ServiceBusClientManager.getAdminClient(connectionString)
+    const rules = []
+
+    for await (const rule of client.listRules(topicName, subscriptionName)) {
+      rules.push({
+        name: rule.name,
+        filter: rule.filter,
+        action: rule.action,
+      })
+    }
+
+    return rules
+  }
+  catch (error) {
+    ErrorHandler.handleError(error, `listing rules for subscription '${subscriptionName}'`)
+    throw error
+  }
 }
 
 const createMessageFromDeadletter = (message: ServiceBusReceivedMessage): ServiceBusMessage => {

@@ -19,7 +19,7 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     this.tooltip = `${this.label}}`
     this.description = this.getDescription()
     this.command = {
-      command: 'horgen.peek-ui.showMessages',
+      command: 'peekabus.peek-a-bus.showMessages',
       title: '',
       arguments: [this],
     }
@@ -50,7 +50,64 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
 
   updateView = async () => {
     if (this.view) {
-      const messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      // Get fresh counts
+      const queue = await service.getQueueRuntimeProperties(this.connectionString, this.label)
+      const dep = mapQueueToDep(queue, this.connectionString)
+      this.update(dep)
+
+      if (this.activeMessageCount < 1 && this.deadLetterMessageCount < 1) {
+        this.view.update({ messages: [], deadletter: [] })
+        return
+      }
+
+      // Ask user to choose mode and amount
+      const mode = await vscode.window.showQuickPick(
+        [
+          'Peek Messages (one partition, no side effects)',
+          'Receive Messages (all partitions, increments delivery count)',
+        ],
+        {
+          placeHolder: 'Choose how to retrieve messages',
+          ignoreFocusOut: true
+        }
+      )
+
+      if (!mode) {
+        return
+      }
+
+      const amountStr = await vscode.window.showInputBox({
+        prompt: `How many messages to retrieve? (Active: ${this.activeMessageCount}, Deadletter: ${this.deadLetterMessageCount})`,
+        value: Math.min(this.activeMessageCount, 100).toString(),
+        validateInput: (value) => {
+          const num = parseInt(value)
+          if (isNaN(num) || num < 1) {
+            return 'Please enter a valid number greater than 0'
+          }
+          if (num > 1000) {
+            return 'Maximum 1000 messages allowed'
+          }
+          return null
+        },
+        ignoreFocusOut: true
+      })
+
+      if (!amountStr) {
+        return
+      }
+
+      const amount = parseInt(amountStr)
+      const useReceiveMode = mode.startsWith('Receive')
+
+      console.log(`[QueueItem.updateView] Fetching messages - Mode: ${mode}, Amount: ${amount}`)
+      const messagesDetails = await service.peekQueueMessages(
+        this.connectionString,
+        this.label,
+        amount,
+        Math.min(this.deadLetterMessageCount, amount),
+        useReceiveMode
+      )
+      console.log(`[QueueItem.updateView] Received messages - Active: ${messagesDetails.messages.length}, DL: ${messagesDetails.deadletter.length}`)
       this.view.update(messagesDetails)
     }
   }
@@ -60,11 +117,12 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     try {
       await ErrorHandler.withProgress(
         `Transferring deadletter messages from '${this.label}'...`,
-        () => service.transferQueueDl(this.connectionString, this.label)
+        () => service.transferQueueDl(this.connectionString, this.label),
       )
       vscode.window.showInformationMessage(`Successfully transferred deadletter messages from queue '${this.label}'`)
       await this.refresh(provider)
-    } catch (error) {
+    }
+    catch (error) {
       provider.refresh(this)
     }
   }
@@ -74,11 +132,12 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     try {
       await ErrorHandler.withProgress(
         `Purging messages from '${this.label}'...`,
-        () => service.purgeQueueMessages(this.connectionString, this.label)
+        () => service.purgeQueueMessages(this.connectionString, this.label),
       )
       vscode.window.showInformationMessage(`Successfully purged messages from queue '${this.label}'`)
       await this.refresh(provider)
-    } catch (error) {
+    }
+    catch (error) {
       provider.refresh(this)
     }
   }
@@ -88,18 +147,25 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
     try {
       await ErrorHandler.withProgress(
         `Purging deadletter from '${this.label}'...`,
-        () => service.purgeQueueDeadLetter(this.connectionString, this.label)
+        () => service.purgeQueueDeadLetter(this.connectionString, this.label),
       )
       vscode.window.showInformationMessage(`Successfully purged deadletter from queue '${this.label}'`)
       await this.refresh(provider)
-    } catch (error) {
+    }
+    catch (error) {
       provider.refresh(this)
     }
   }
 
   show = async () => {
+    // Get fresh counts
+    const queue = await service.getQueueRuntimeProperties(this.connectionString, this.label)
+    const dep = mapQueueToDep(queue, this.connectionString)
+    this.update(dep)
+
     if (this.view) {
       this.view.reveal()
+      await this.updateView()
       return
     }
 
@@ -108,7 +174,54 @@ export class QueueItem extends SbDependencyBase implements IInteractableItem {
       messagesDetails = { messages: [], deadletter: [] }
     }
     else {
-      messagesDetails = await service.peekQueueMessages(this.connectionString, this.label, this.activeMessageCount, this.deadLetterMessageCount)
+      // Ask user to choose mode and amount
+      const mode = await vscode.window.showQuickPick(
+        [
+          'Peek Messages (one partition, no side effects)',
+          'Receive Messages (all partitions, increments delivery count)',
+        ],
+        {
+          placeHolder: 'Choose how to retrieve messages',
+          ignoreFocusOut: true
+        }
+      )
+
+      if (!mode) {
+        return
+      }
+
+      const amountStr = await vscode.window.showInputBox({
+        prompt: `How many messages to retrieve? (Active: ${this.activeMessageCount}, Deadletter: ${this.deadLetterMessageCount})`,
+        value: Math.min(this.activeMessageCount, 100).toString(),
+        validateInput: (value) => {
+          const num = parseInt(value)
+          if (isNaN(num) || num < 1) {
+            return 'Please enter a valid number greater than 0'
+          }
+          if (num > 1000) {
+            return 'Maximum 1000 messages allowed'
+          }
+          return null
+        },
+        ignoreFocusOut: true
+      })
+
+      if (!amountStr) {
+        return
+      }
+
+      const amount = parseInt(amountStr)
+      const useReceiveMode = mode.startsWith('Receive')
+
+      console.log(`[QueueItem.show] Fetching messages - Mode: ${mode}, Amount: ${amount}`)
+      messagesDetails = await service.peekQueueMessages(
+        this.connectionString,
+        this.label,
+        amount,
+        Math.min(this.deadLetterMessageCount, amount),
+        useReceiveMode
+      )
+      console.log(`[QueueItem.show] Received messages - Active: ${messagesDetails.messages.length}, DL: ${messagesDetails.deadletter.length}`)
     }
 
     this.view = new MessagesWebView(this, messagesDetails)

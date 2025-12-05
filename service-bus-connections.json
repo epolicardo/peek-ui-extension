@@ -1,0 +1,27 @@
+[
+  {
+    "name": "EUWQGTP005SBS01",
+    "alias": "GTP - QA",
+    "connectionString": "Endpoint=sb://euwqgtp005sbs01.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=Zczkgjdok1twGZy+nQ4pzk/s+FPuL3Ub4l7bletcoYc=;TransportType=NetMessaging"
+  },
+  {
+    "name": "EUWDGTP005SBS01",
+    "alias": "GTP - DEV",
+    "connectionString": "Endpoint=sb://euwdgtp005sbs01.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=ZXka4zmKXFRRRVZpkgT+hnk1NZYmqnx/LRWG7e5XrO4=;TransportType=NetMessaging\""
+  },
+  {
+    "name": "EUWUGTP005SBS01",
+    "alias": "GTP - UAT",
+    "connectionString": "Endpoint=sb://euwugtp005sbs01.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=sPYIKFaDuRYlrZW2D9SePyDAyczuSQ0eLY99E0ivWpo="
+  },
+  {
+    "name": "EUWXGTP020SBT01",
+    "alias": "GTP - STG",
+    "connectionString": "Endpoint=sb://euwxgtp020sbt01.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=xpb61rI4cANEhV26gmyGLx8hRqDMdFKtlrbMC6kzZ3I=;TransportType=NetMessaging"
+  },
+  {
+    "name": "EUWFGTP012SBT02",
+    "alias": "GTP - PERF",
+    "connectionString": "Endpoint=sb://euwfgtp012sbt02.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=l+gW0mza7vtOEJTrIL19hyX0BcDt3lD+61MnL/dFtdI="
+  }
+]

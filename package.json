@@ -1,13 +1,23 @@
 {
-  "name": "peek-ui",
-  "displayName": "Peek UI",
-  "description": "Servicebus tool",
-  "version": "0.0.3",
-  "icon": "media/peekui_logo.png",
-  "publisher": "horgen",
+  "name": "peek-a-bus",
+  "displayName": "Peek a Bus",
+  "description": "Azure Service Bus management tool - Modified version of Peek UI by horgen",
+  "version": "0.2.1",
+  "icon": "images/peekabus_icon-removebg-preview.png",
+  "publisher": "epolicardo",
+  "author": {
+    "name": "Emiliano Policardo",
+    "email": "emilianopolicardo@gmail.com"
+  },
+  "contributors": [
+    {
+      "name": "horgen (Original Author)",
+      "url": "https://github.com/Aqw0rd"
+    }
+  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Aqw0rd/peek-ui-extension"
+    "url": "https://github.com/epolicardo/peek-ui-extension"
   },
   "engines": {
     "vscode": "^1.94.0"
@@ -21,29 +31,29 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "horgen-peekui-servicebus-explorer",
-          "title": "Peek",
-          "icon": "media/peekui_icon.svg"
+          "id": "peekabus-peek-a-bus-servicebus-explorer",
+          "title": "Peek a Bus",
+          "icon": "images/pab.svg"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "horgen.peek-ui",
-        "contents": "No Servicebus connectionstrings added.\n[Add Servicebus](command:horgen.peek-ui.addConnection)",
-        "when": "horgen.peek-ui:isInitialized == true"
+        "view": "peekabus.peek-a-bus",
+        "contents": "No Servicebus connectionstrings added.\n[Add Servicebus](command:peekabus.peek-a-bus.addConnection)",
+        "when": "peekabus.peek-a-bus:isInitialized == true"
       }
     ],
     "views": {
-      "horgen-peekui-servicebus-explorer": [
+      "peekabus-peek-a-bus-servicebus-explorer": [
         {
-          "id": "horgen.peek-ui.favorites",
+          "id": "peekabus.peek-a-bus.favorites",
           "name": "Favorites",
           "icon": "media/peekui_icon.svg",
           "contextualTitle": "Favorite Queues & Subscriptions"
         },
         {
-          "id": "horgen.peek-ui",
+          "id": "peekabus.peek-a-bus",
           "name": "Connections",
           "icon": "media/peekui_icon.svg",
           "contextualTitle": "Servicebus Explorer"
@@ -52,133 +62,191 @@
     },
     "commands": [
       {
-        "command": "horgen.peek-ui.addConnection",
+        "command": "peekabus.peek-a-bus.addConnection",
         "title": "Add Servicebus Connectionstring"
       },
       {
-        "command": "horgen.peek-ui.refresh",
+        "command": "peekabus.peek-a-bus.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "horgen.peek-ui.connect",
+        "command": "peekabus.peek-a-bus.connect",
         "title": "Connect",
         "icon": "$(debug-disconnect)"
       },
       {
-        "command": "horgen.peek-ui.transferDeadletterAll",
+        "command": "peekabus.peek-a-bus.transferDeadletterAll",
         "title": "Transfer Deadletter (All)"
       },
       {
-        "command": "horgen.peek-ui.purgeMessages",
+        "command": "peekabus.peek-a-bus.purgeMessages",
         "title": "Purge Messages"
       },
       {
-        "command": "horgen.peek-ui.purgeDeadletter",
+        "command": "peekabus.peek-a-bus.purgeDeadletter",
         "title": "Purge Deadletter"
       },
       {
-        "command": "horgen.peek-ui.removeConnection",
+        "command": "peekabus.peek-a-bus.removeConnection",
         "title": "Remove Connection",
         "icon": "$(trash)"
       },
       {
-        "command": "horgen.peek-ui.editConnectionAlias",
+        "command": "peekabus.peek-a-bus.editConnectionAlias",
         "title": "Edit Connection Alias",
         "icon": "$(edit)"
       },
       {
-        "command": "horgen.peek-ui.showMessages",
+        "command": "peekabus.peek-a-bus.showMessages",
         "title": "View Messages",
         "icon": "$(eye)"
       },
       {
-        "command": "horgen.peek-ui.addToFavorites",
+        "command": "peekabus.peek-a-bus.addToFavorites",
         "title": "Add to Favorites",
         "icon": "$(star-empty)"
       },
       {
-        "command": "horgen.peek-ui.removeFromFavorites",
+        "command": "peekabus.peek-a-bus.removeFromFavorites",
         "title": "Remove from Favorites",
         "icon": "$(star-full)"
       },
       {
-        "command": "horgen.peek-ui.openFavorite",
+        "command": "peekabus.peek-a-bus.openFavorite",
         "title": "Open Favorite"
       },
       {
-        "command": "horgen.peek-ui.toggleMonitoring",
+        "command": "peekabus.peek-a-bus.toggleMonitoring",
         "title": "Toggle Message Monitoring",
         "icon": "$(bell)"
+      },
+      {
+        "command": "peekabus.peek-a-bus.exportConnections",
+        "title": "Export Connections",
+        "icon": "$(export)"
+      },
+      {
+        "command": "peekabus.peek-a-bus.importConnections",
+        "title": "Import Connections",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "peekabus.peek-a-bus.createSubscription",
+        "title": "Create Subscription",
+        "icon": "$(add)"
+      },
+      {
+        "command": "peekabus.peek-a-bus.editSubscription",
+        "title": "Edit Subscription"
+      },
+      {
+        "command": "peekabus.peek-a-bus.deleteSubscription",
+        "title": "Delete Subscription"
+      },
+      {
+        "command": "peekabus.peek-a-bus.manageRules",
+        "title": "Manage Rules",
+        "icon": "$(filter)"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "horgen.peek-ui.addConnection",
-          "when": "view == horgen.peek-ui",
+          "command": "peekabus.peek-a-bus.addConnection",
+          "when": "view == peekabus.peek-a-bus",
           "group": "navigation"
+        },
+        {
+          "command": "peekabus.peek-a-bus.exportConnections",
+          "when": "view == peekabus.peek-a-bus",
+          "group": "1_import_export"
+        },
+        {
+          "command": "peekabus.peek-a-bus.importConnections",
+          "when": "view == peekabus.peek-a-bus",
+          "group": "1_import_export"
         }
       ],
       "view/item/context": [
         {
-          "command": "horgen.peek-ui.showMessages",
-          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
+          "command": "peekabus.peek-a-bus.showMessages",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
           "group": "inline"
         },
         {
-          "command": "horgen.peek-ui.refresh",
-          "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'childDependency' || viewItem == 'interactableDependency')",
+          "command": "peekabus.peek-a-bus.refresh",
+          "when": "view == peekabus.peek-a-bus && (viewItem == 'connectedSbItem' || viewItem == 'childDependency' || viewItem == 'interactableDependency')",
           "group": "inline"
         },
         {
-          "command": "horgen.peek-ui.connect",
-          "when": "view == horgen.peek-ui && viewItem == 'disconnectedSbItem'",
+          "command": "peekabus.peek-a-bus.connect",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'disconnectedSbItem'",
           "group": "inline"
         },
         {
-          "command": "horgen.peek-ui.transferDeadletterAll",
-          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
+          "command": "peekabus.peek-a-bus.transferDeadletterAll",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
           "group": "group1"
         },
         {
-          "command": "horgen.peek-ui.purgeMessages",
-          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
+          "command": "peekabus.peek-a-bus.purgeMessages",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
           "group": "group2"
         },
         {
-          "command": "horgen.peek-ui.purgeDeadletter",
-          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
+          "command": "peekabus.peek-a-bus.purgeDeadletter",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
           "group": "group2"
         },
         {
-          "command": "horgen.peek-ui.removeConnection",
-          "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'disconnectedSbItem')",
+          "command": "peekabus.peek-a-bus.removeConnection",
+          "when": "view == peekabus.peek-a-bus && (viewItem == 'connectedSbItem' || viewItem == 'disconnectedSbItem')",
           "group": "inline"
         },
         {
-          "command": "horgen.peek-ui.editConnectionAlias",
-          "when": "view == horgen.peek-ui && (viewItem == 'connectedSbItem' || viewItem == 'disconnectedSbItem')",
+          "command": "peekabus.peek-a-bus.editConnectionAlias",
+          "when": "view == peekabus.peek-a-bus && (viewItem == 'connectedSbItem' || viewItem == 'disconnectedSbItem')",
           "group": "management"
         },
         {
-          "command": "horgen.peek-ui.toggleMonitoring",
-          "when": "view == horgen.peek-ui && viewItem == 'interactableDependency'",
+          "command": "peekabus.peek-a-bus.toggleMonitoring",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
           "group": "monitoring"
         },
         {
-          "command": "horgen.peek-ui.addToFavorites",
-          "when": "view == horgen.peek-ui && (viewItem == 'interactableDependency' || viewItem == 'childDependency')",
+          "command": "peekabus.peek-a-bus.createSubscription",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'childDependency'",
+          "group": "management"
+        },
+        {
+          "command": "peekabus.peek-a-bus.editSubscription",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
+          "group": "management"
+        },
+        {
+          "command": "peekabus.peek-a-bus.deleteSubscription",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
+          "group": "management"
+        },
+        {
+          "command": "peekabus.peek-a-bus.manageRules",
+          "when": "view == peekabus.peek-a-bus && viewItem == 'interactableDependency'",
+          "group": "management"
+        },
+        {
+          "command": "peekabus.peek-a-bus.addToFavorites",
+          "when": "view == peekabus.peek-a-bus && (viewItem == 'interactableDependency' || viewItem == 'childDependency')",
           "group": "favorites"
         },
         {
-          "command": "horgen.peek-ui.removeFromFavorites",
-          "when": "view == horgen.peek-ui.favorites && (viewItem == 'favoriteQueue' || viewItem == 'favoriteTopic' || viewItem == 'favoriteSubscription')",
+          "command": "peekabus.peek-a-bus.removeFromFavorites",
+          "when": "view == peekabus.peek-a-bus.favorites && (viewItem == 'favoriteQueue' || viewItem == 'favoriteTopic' || viewItem == 'favoriteSubscription')",
           "group": "inline"
         },
         {
-          "command": "horgen.peek-ui.showMessages",
-          "when": "view == horgen.peek-ui.favorites && (viewItem == 'favoriteQueue' || viewItem == 'favoriteSubscription')",
+          "command": "peekabus.peek-a-bus.showMessages",
+          "when": "view == peekabus.peek-a-bus.favorites && (viewItem == 'favoriteQueue' || viewItem == 'favoriteSubscription')",
           "group": "inline"
         }
       ]
@@ -191,7 +259,11 @@
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "vscode:prepublish": "npm run package",
-    "package": "npm run check-types && node esbuild.js --production"
+    "package": "npm run check-types && node esbuild.js --production",
+    "version:hotfix": "node scripts/version.js hotfix",
+    "version:minor": "node scripts/version.js minor",
+    "build:hotfix": "npm run version:hotfix && npm run compile && npx @vscode/vsce package --no-dependencies",
+    "build:minor": "npm run version:minor && npm run compile && npx @vscode/vsce package --no-dependencies"
   },
   "dependencies": {
     "@azure/service-bus": "^7.9.0"

@@ -1,0 +1,29 @@
+# NOTICE
+
+This software "Peek a Bus" is a modified version of "Peek UI" 
+Original work Copyright (c) horgen (Aqw0rd)
+Original repository: https://github.com/Aqw0rd/peek-ui-extension
+
+Modified work Copyright (c) 2025 Emiliano Policardo (epolicardo)
+Current repository: https://github.com/epolicardo/peek-ui-extension
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+## Modifications made:
+- Renamed extension from "Peek UI" to "Peek a Bus"
+- Changed namespace from "horgen" to "peekabus"
+- Changed publisher to "epolicardo"
+- Added category grouping for Service Bus entities
+- Added version management scripts
+- Changed subscription icons to better represent the bus analogy
+- Added export/import connection functionality
+- Added subscription and rules management
+- Performance optimizations for Service Bus connections
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.

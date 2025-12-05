@@ -14,46 +14,64 @@ export function activate(context: vscode.ExtensionContext) {
   const servicebusProvider = new ServiceBusProvider(context)
   const favoritesProvider = new FavoritesProvider(context)
 
-  vscode.window.registerTreeDataProvider('horgen.peek-ui', servicebusProvider)
-  vscode.window.registerTreeDataProvider('horgen.peek-ui.favorites', favoritesProvider)
-  vscode.commands.registerCommand('horgen.peek-ui.addConnection', () => {
+  vscode.window.registerTreeDataProvider('peekabus.peek-a-bus', servicebusProvider)
+  vscode.window.registerTreeDataProvider('peekabus.peek-a-bus.favorites', favoritesProvider)
+  vscode.commands.registerCommand('peekabus.peek-a-bus.addConnection', () => {
     servicebusProvider.addConnection()
   })
-  vscode.commands.registerCommand('horgen.peek-ui.connect', (node: ServiceBusItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.connect', (node: ServiceBusItem) => {
     node.connect(servicebusProvider)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.refresh', (node: SbDependencyBase) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.refresh', (node: SbDependencyBase) => {
     node.refresh(servicebusProvider)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.showMessages', async (node: IInteractableItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.showMessages', async (node: IInteractableItem) => {
     await node.show()
   })
-  vscode.commands.registerCommand('horgen.peek-ui.transferDeadletterAll', async (node: IInteractableItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.transferDeadletterAll', async (node: IInteractableItem) => {
     await node.transfer(servicebusProvider)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.purgeMessages', async (node: IInteractableItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.purgeMessages', async (node: IInteractableItem) => {
     await node.purge(servicebusProvider)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.purgeDeadletter', async (node: IInteractableItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.purgeDeadletter', async (node: IInteractableItem) => {
     await node.purgeDl(servicebusProvider)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.removeConnection', async (node: ServiceBusItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.removeConnection', async (node: ServiceBusItem) => {
     await servicebusProvider.removeConnection(node.label)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.editConnectionAlias', async (node: ServiceBusItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.editConnectionAlias', async (node: ServiceBusItem) => {
     await servicebusProvider.editConnectionAlias(node)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.addToFavorites', async (node: QueueItem | TopicItem | SubscriptionItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.addToFavorites', async (node: QueueItem | TopicItem | SubscriptionItem) => {
     await favoritesProvider.addToFavorites(node)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.removeFromFavorites', async (node: any) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.removeFromFavorites', async (node: any) => {
     await favoritesProvider.removeFromFavorites(node)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.openFavorite', async (favorite: IFavoriteItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.openFavorite', async (favorite: IFavoriteItem) => {
     await favoritesProvider.openFavorite(favorite)
   })
-  vscode.commands.registerCommand('horgen.peek-ui.toggleMonitoring', async (node: QueueItem | SubscriptionItem) => {
+  vscode.commands.registerCommand('peekabus.peek-a-bus.toggleMonitoring', async (node: QueueItem | SubscriptionItem) => {
     await node.toggleMonitoring(servicebusProvider)
+  })
+  vscode.commands.registerCommand('peekabus.peek-a-bus.exportConnections', async () => {
+    await servicebusProvider.exportConnections()
+  })
+  vscode.commands.registerCommand('peekabus.peek-a-bus.importConnections', async () => {
+    await servicebusProvider.importConnections()
+  })
+  vscode.commands.registerCommand('peekabus.peek-a-bus.createSubscription', async (node: TopicItem) => {
+    await node.createSubscription(servicebusProvider)
+  })
+  vscode.commands.registerCommand('peekabus.peek-a-bus.editSubscription', async (node: SubscriptionItem) => {
+    await node.editSubscription(servicebusProvider)
+  })
+  vscode.commands.registerCommand('peekabus.peek-a-bus.deleteSubscription', async (node: SubscriptionItem) => {
+    await node.deleteSubscription(servicebusProvider)
+  })
+  vscode.commands.registerCommand('peekabus.peek-a-bus.manageRules', async (node: SubscriptionItem) => {
+    await node.manageRules()
   })
 }
 

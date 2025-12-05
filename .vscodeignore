@@ -12,3 +12,10 @@ vsc-extension-quickstart.md
 out/
 node_modules
 esbuild.js
+# Exclude sensitive and development files
+service-bus-connections.json
+*.vsix
+IMPROVEMENTS.md
+TOPIC_FAVORITES_ANALYSIS.md
+.github/**
+scripts/**

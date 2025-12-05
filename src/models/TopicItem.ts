@@ -37,4 +37,32 @@ export class TopicItem extends SbDependencyBase {
     this.description = item.getDescription()
     this.iconPath = new vscode.ThemeIcon('server-environment')
   }
+
+  createSubscription = async (provider: ServiceBusProvider) => {
+    const name = await vscode.window.showInputBox({
+      prompt: 'Subscription name',
+      placeHolder: 'my-subscription',
+      validateInput: (value) => {
+        if (!value || value.trim().length === 0) {
+          return 'Name is required'
+        }
+        if (!/^[a-zA-Z0-9-_]+$/.test(value)) {
+          return 'Name can only contain letters, numbers, hyphens and underscores'
+        }
+        return null
+      },
+    })
+
+    if (!name) {
+      return
+    }
+
+    try {
+      await service.createSubscription(this.connectionString, this.label, name)
+      await this.refresh(provider)
+    }
+    catch (error) {
+      // Error already handled by service
+    }
+  }
 }
